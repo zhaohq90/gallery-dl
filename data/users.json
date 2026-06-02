@@ -1,14 +1,19 @@
 {
-    "settings": {
-        "export_root": ".",
-        "limit": 10,
-        "log_file": "export.log"
+  "settings": {
+    "export_root": ".",
+    "limit": 10,
+    "log_file": "export.log"
+  },
+  "users": [
+    {
+      "username": "blackanger",
+      "display_name": "blackanger",
+      "enabled": true
     },
-    "users": [
-        {
-            "username": "elonmusk",
-            "display_name": "Elon Musk",
-            "enabled": true
-        }
-    ]
+    {
+      "username": "qexiaohao",
+      "display_name": "qexiaohao",
+      "enabled": true
+    }
+  ]
 }
