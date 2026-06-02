@@ -15,7 +15,6 @@ import os
 import sys
 import subprocess
 import logging
-import shlex
 from pathlib import Path
 from datetime import datetime
 
@@ -48,29 +47,68 @@ def find_cookies(extractor_cfg):
     return COOKIES_FILE  # fallback
 
 
+def check_twitter_auth(cookies_path):
+    """Verify cookies.txt contains Twitter/X authentication cookies."""
+    required = {"auth_token", "ct0"}
+    found = set()
+    try:
+        with open(cookies_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 7:
+                    domain = parts[0]
+                    name = parts[5]
+                    if domain in ("twitter.com", "x.com", ".twitter.com", ".x.com"):
+                        found.add(name)
+    except Exception:
+        return False, "无法读取 cookies 文件"
+    missing = required - found
+    if missing:
+        return False, f"缺少必需 cookies: {', '.join(sorted(missing))}"
+    return True, "OK"
+
+
 def run_gallery(cmd, timeout=600):
     """Run a gallery-dl command, return (success, stdout)."""
-    logging.debug("  CMD: %s", " ".join(shlex.quote(str(x)) for x in cmd))
+    import tempfile
+    logging.debug("  CMD: %s", " ".join(str(x) for x in cmd))
+    stdout_fd, stdout_path = tempfile.mkstemp(prefix="gallery_stdout_", suffix=".log")
+    stderr_fd, stderr_path = tempfile.mkstemp(prefix="gallery_stderr_", suffix=".log")
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=SCRIPT_DIR,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
-        )
-        if proc.stdout:
-            logging.debug("  STDOUT:\n%s", proc.stdout.strip())
-        if proc.stderr:
-            logging.debug("  STDERR:\n%s", proc.stderr.strip())
-        return proc.returncode == 0, proc.stdout + proc.stderr
+        with open(stdout_fd, "w", encoding="utf-8") as stdout_f, \
+             open(stderr_fd, "w", encoding="utf-8") as stderr_f:
+            proc = subprocess.run(
+                cmd,
+                stdout=stdout_f,
+                stderr=stderr_f,
+                timeout=timeout,
+                cwd=SCRIPT_DIR,
+                env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            )
+        # Read output after process exits (no deadlock risk with files)
+        stdout_text = Path(stdout_path).read_text(encoding="utf-8", errors="replace")
+        stderr_text = Path(stderr_path).read_text(encoding="utf-8", errors="replace")
+        if stdout_text.strip():
+            logging.debug("  STDOUT:\n%s", stdout_text.strip())
+        if stderr_text.strip():
+            logging.debug("  STDERR:\n%s", stderr_text.strip())
+        return proc.returncode == 0, stdout_text + stderr_text
     except subprocess.TimeoutExpired:
         logging.error("  gallery-dl 超时 (%ds)", timeout)
         return False, "timeout"
     except FileNotFoundError:
         logging.error("  gallery-dl 未找到，请先安装: pip install gallery-dl")
         return False, "gallery-dl not found"
+    finally:
+        # Clean up temp files
+        for p in (stdout_path, stderr_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 def export_profile(export_root, username):
@@ -81,7 +119,7 @@ def export_profile(export_root, username):
     cmd = [
         "gallery-dl",
         "-c", str(CONFIG_FILE),
-        "-o", f"directory={shlex.quote(str(profile_dir))}",
+        "-D", str(profile_dir),
         f"https://x.com/{username}/info",
         f"https://x.com/{username}/photo",
         f"https://x.com/{username}/header_photo",
@@ -98,7 +136,7 @@ def export_content(export_root, username, limit):
     cmd = [
         "gallery-dl",
         "-c", str(CONFIG_FILE),
-        "-o", f"directory={shlex.quote(str(content_dir))}",
+        "-D", str(content_dir),
         "-o", f"limit={limit}",
         f"https://x.com/{username}/with_replies",
     ]
@@ -161,6 +199,15 @@ def main():
         logging.error("请将 cookies.txt 放到 %s", SCRIPT_DIR)
         sys.exit(1)
     logging.info("Cookies: %s", cookies_path)
+
+    # 验证 Twitter/X 登录凭据
+    auth_ok, auth_msg = check_twitter_auth(cookies_path)
+    if auth_ok:
+        logging.info("Cookies 验证: ✓ 包含 auth_token / ct0")
+    else:
+        logging.warning("Cookies 验证: ✗ %s", auth_msg)
+        logging.warning("没有有效的登录凭据，with_replies 等接口将无法使用")
+        logging.warning("请重新导出 cookies（推荐使用浏览器插件如 'cookies.txt'）")
 
     # ---- 确定导出根目录 ----
     export_root_raw = settings.get("export_root", ".")
