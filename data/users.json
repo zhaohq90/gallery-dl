@@ -1,0 +1,14 @@
+{
+    "settings": {
+        "export_root": ".",
+        "limit": 10,
+        "log_file": "export.log"
+    },
+    "users": [
+        {
+            "username": "elonmusk",
+            "display_name": "Elon Musk",
+            "enabled": true
+        }
+    ]
+}
