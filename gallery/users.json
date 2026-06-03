@@ -53,7 +53,7 @@
              {
       "username": "buyaozuosi",
       "display_name": "buyaozuosi",
-      "enabled": true
+      "enabled": false
     },
              {
       "username": "Yels88",
@@ -83,7 +83,7 @@
                  {
       "username": "Jiujiuajiujiu",
       "display_name": "Jiujiuajiujiu",
-      "enabled": false
+      "enabled": true
     },
                  {
       "username": "Antsmelling",
@@ -98,7 +98,7 @@
     {
       "username": "qexiaohao",
       "display_name": "qexiaohao",
-      "enabled": false
+      "enabled": true
     }
   ]
 }
