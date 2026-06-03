@@ -137,7 +137,6 @@ def export_content(export_root, username, limit):
         "gallery-dl",
         "-c", str(CONFIG_FILE),
         "-D", str(content_dir),
-        "-o", f"limit={limit}",
         f"https://x.com/{username}/with_replies",
     ]
     ok, output = run_gallery(cmd)

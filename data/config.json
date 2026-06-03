@@ -15,7 +15,8 @@
             "transform": true,
             "cursor": true,
             "ratelimit": "wait",
-            "retries-api": 5
+            "retries-api": 5,
+            "limit": 10
         }
     }
 }
