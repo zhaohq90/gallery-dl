@@ -18,5 +18,6 @@
             "retries-api": 5,
             "limit": 10
         }
-    }
+    },
+    "archive": "./archive.sqlite3"
 }

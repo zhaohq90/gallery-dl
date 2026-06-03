@@ -1,5 +1,8 @@
 archive/
 
+# Download archives (SQLite)
+**/archive.sqlite3
+
 # Sensitive files
 **/cookies.txt
 
