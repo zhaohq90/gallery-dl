@@ -177,3 +177,19 @@ python export.py
 
 **Q: 如何更改导出目录？**
 修改 `users.json` 中 `settings.export_root`，支持相对路径（相对于 data 目录）或绝对路径。
+
+**Q: 遇到 `Permission denied: '/data'` 权限错误？**
+
+这是因为通过 snap 安装的 gallery-dl 启用了 strict confinement（AppArmor 沙箱），仅允许访问 `/home`、`/media` 等白名单路径，`/data` 等自定义目录不可访问。即使 snap 连接了 `removable-media` 接口也无法覆盖 `/data`。
+
+解决方法：用 pip 安装 gallery-dl 替代 snap 版本：
+
+```bash
+# 安装 pip 版本（无文件系统限制）
+python3 -m pip install gallery-dl
+
+# 移除 snap 版本
+snap remove gallery-dl
+```
+
+之后 `gallery-dl` 可以对任意路径进行读写。

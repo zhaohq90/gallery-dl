@@ -1,6 +1,6 @@
 {
   "settings": {
-    "export_root": ".",
+    "export_root": "/data/gallery",
     "limit": 10,
     "log_file": "export.log"
   },
@@ -8,7 +8,7 @@
     {
       "username": "blackanger",
       "display_name": "blackanger",
-      "enabled": true
+      "enabled": false
     },
     {
       "username": "qexiaohao",

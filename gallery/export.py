@@ -71,7 +71,7 @@ def check_twitter_auth(cookies_path):
     return True, "OK"
 
 
-def run_gallery(cmd, timeout=60):
+def run_gallery(cmd, timeout=600):
     """Run a gallery-dl command, return (success, stdout)."""
     import tempfile
     logging.debug("  CMD: %s", " ".join(str(x) for x in cmd))

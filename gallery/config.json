@@ -6,7 +6,7 @@
             "previews": true,
             "quoted": true,
             "text-tweets": true,
-            "retweets": false,
+            "retweets": true,
             "replies": true,
             "pinned": false,
             "cards": false,
