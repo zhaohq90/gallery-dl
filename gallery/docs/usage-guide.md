@@ -100,7 +100,8 @@ gallery/
     "incremental_threshold": 10,
     "download_media": true,
     "store_db": "./twitter.db",
-    "max_count": -1
+    "max_count": -1,
+    "base_path": ""
 }
 ```
 
@@ -113,6 +114,7 @@ gallery/
 | `download_media` | bool | `true` | 是否下载媒体文件 |
 | `store_db` | string | `"./twitter.db"` | SQLite 数据库路径（sql 模式） |
 | `max_count` | int | `-1` | 单用户最大推文数，`-1` 不限制 |
+| `base_path` | string | `""` | 全局下载根目录前缀；为空时使用 `users.json` 中的 `export_root` |
 
 ### 3.3 用户列表 (`users.json`)
 

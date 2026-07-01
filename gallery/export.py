@@ -344,6 +344,21 @@ def main():
     if not export_root.is_absolute():
         export_root = SCRIPT_DIR / export_root
     export_root = export_root.resolve()
+
+    # base_path 全局前缀（config.json，优先级高于 export_root）
+    base_path_raw = gal_config.get("base_path", "")
+    if base_path_raw:
+        base_path = Path(base_path_raw)
+        if not base_path.is_absolute():
+            base_path = SCRIPT_DIR / base_path
+        base_path = base_path.resolve()
+        # 将 base_path 作为父目录，export_root 作为子路径
+        try:
+            rel = export_root.relative_to(SCRIPT_DIR)
+        except ValueError:
+            rel = export_root.name if export_root.name else Path("export")
+        export_root = base_path / rel
+        logging.info("基础路径: %s", base_path)
     logging.info("导出根目录: %s", export_root)
 
     # 用户列表
