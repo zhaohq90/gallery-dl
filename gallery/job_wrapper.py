@@ -9,6 +9,7 @@
   - 操作日志统计
 """
 
+import collections
 import logging
 from pathlib import Path
 
@@ -57,14 +58,18 @@ class CustomJob(job.DownloadJob):
         if self._store_mode != "sql":
             return
 
+        # gallery-dl 没有 postprocessors 时 hooks 保持为 ()，需手动转为 defaultdict
+        if not isinstance(self.hooks, collections.defaultdict):
+            self.hooks = collections.defaultdict(list)
+
         # prepare: 中止条件检查 + 写 user + 写 tweet
-        self.hooks.setdefault("prepare", []).append(self._on_prepare)
+        self.hooks["prepare"].append(self._on_prepare)
 
         # after: 写 media（文件下载成功后）
-        self.hooks.setdefault("after", []).append(self._on_after)
+        self.hooks["after"].append(self._on_after)
 
         # skip: 写 media（文件被跳过时，如已在 archive 中）
-        self.hooks.setdefault("skip", []).append(self._on_skip)
+        self.hooks["skip"].append(self._on_skip)
 
     # ── hooks ──────────────────────────────────────────────
 

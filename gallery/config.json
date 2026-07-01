@@ -26,5 +26,5 @@
   "download_media": true,
   "store_db": "./data/twitter.db",
   "max_count": 10,
-  "base_path": ""
+  "base_path": "./data"
 }
