@@ -20,12 +20,20 @@
 ## 文件结构
 
 ```
-data/
-├── README.md       # 本文件
-├── cookies.txt     # Twitter cookies（Netscape 格式）
-├── config.json     # gallery-dl 原生配置
-├── users.json      # 用户列表 + 脚本参数
-└── export.py       # 批量导出脚本
+gallery/
+├── README.md                      # 本文件
+├── cookies.txt                    # Twitter cookies（Netscape 格式）
+├── config.json                    # gallery-dl 原生配置 + 全局开关
+├── users.json                     # 用户列表 + 脚本参数
+├── export.py                      # 批量导出脚本
+├── db.py                          # SQLite 数据库管理器（sql 模式）
+├── job_wrapper.py                 # 自定义 DownloadJob 包装器
+├── twitter.db                     # SQLite 数据库（sql 模式自动生成）
+├── archive.sqlite3                # gallery-dl 下载归档
+└── docs/
+    ├── export-py-debug.md         # export.py 问题排查记录
+    ├── dedup-and-persistence.md   # 去重与持久化机制详解
+    └── sqlite-storage.md          # SQLite 存储与增量扫描设计文档
 ```
 
 ## 实现方案
@@ -33,10 +41,10 @@ data/
 ### 架构
 
 ```
-users.json ──→ export.py ──→ gallery-dl ──→ Twitter API
-                  │
-config.json ──────┘
-cookies.txt ──────┘
+users.json ──→ export.py ──→ CustomJob (gallery-dl Python API)
+                  │                │
+config.json ──────┘                ├─ SQL 模式: db.py → twitter.db
+cookies.txt ──────┘                └─ JSON 模式: metadata PP → .json 文件
 ```
 
 ### config.json — gallery-dl 原生配置
@@ -56,6 +64,28 @@ cookies.txt ──────┘
 | `cursor` | `true` | 支持断点续传 |
 | `ratelimit` | `"wait"` | 触发速率限制时自动等待 |
 | `archive` | `"./archive.sqlite3"` | SQLite 下载归档，持久化记录已下载内容 |
+
+### 全局配置项（顶层）
+
+| 配置项 | 值 | 说明 |
+|---|---|---|
+| `store_mode` | `"json"` (默认) 或 `"sql"` | 元数据存储模式：json=每文件生成 .json 伴生文件，sql=写入 SQLite 数据库 |
+| `scan_mode` | `"full"` (默认) 或 `"incremental"` | 扫描模式：full=全量扫描，incremental=增量扫描 |
+| `incremental_threshold` | `10` | 增量模式下连续已知推文阈值，达到后中止扫描 |
+| `download_media` | `true` (默认) | 是否下载媒体文件；设为 false 时仅采集元数据 |
+| `store_db` | `"./twitter.db"` | SQLite 数据库路径（sql 模式生效） |
+| `max_count` | `-1` | 单用户最大推文数，`-1` 不限制；达到上限后中止并记录日志 |
+
+### 存储模式对比
+
+| 功能 | JSON 模式 | SQL 模式 |
+|------|----------|---------|
+| 元数据文件 | ✅ 每文件一个 .json | ❌ |
+| 结构化查询 | ❌ 需遍历文件 | ✅ SQL / JOIN |
+| 推文去重 | 依赖 archive.sqlite3 | tweets 表 |
+| 作者信息 | 嵌入推文 JSON | 独立 users 表 |
+| 操作日志 | ❌ | ✅ operation_log 表 |
+| 增量扫描 | ❌ | ✅ 阈值中止 |
 
 ### users.json — 用户列表配置
 
@@ -177,7 +207,27 @@ python export.py
 中断时会自动记录游标位置，`cursor: true` 确保下次运行自动恢复。另外 `unique: true` 保证不会重复下载已有内容。
 
 **Q: 如何更改导出目录？**
-修改 `users.json` 中 `settings.export_root`，支持相对路径（相对于 data 目录）或绝对路径。
+修改 `users.json` 中 `settings.export_root`，支持相对路径（相对于 gallery 目录）或绝对路径。
+
+**Q: SQL 模式和 JSON 模式如何选择？**
+- **JSON 模式**：轻量，每个媒体文件伴生 .json 元数据文件，适合偶尔使用
+- **SQL 模式**：所有数据存入 SQLite 数据库，支持 SQL 查询和增量扫描，适合定期同步
+- 切换只需修改 `config.json` 中的 `store_mode` 即可
+
+**Q: 如何使用增量扫描？**
+1. 将 `config.json` 中的 `scan_mode` 设为 `"incremental"`
+2. 将 `store_mode` 设为 `"sql"`（增量扫描依赖 SQLite）
+3. 首次运行使用 `"full"` 模式全量抓取，后续切换为 `"incremental"` 增量同步
+4. 详细说明见 `docs/sqlite-storage.md`
+
+**Q: 如何只采集元数据不下载文件？**
+将 `config.json` 中的 `download_media` 设为 `false`。此时每条推文的元数据仍会写入 SQLite，但不会下载图片/视频文件。
+
+**Q: 如何查看操作日志？**
+sql 模式下，每次运行会生成操作日志，记录每个用户的抓取统计：
+```bash
+sqlite3 twitter.db "SELECT * FROM operation_log ORDER BY id DESC"
+```
 
 **Q: 遇到 `Permission denied: '/data'` 权限错误？**
 

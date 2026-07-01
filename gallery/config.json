@@ -19,5 +19,12 @@
             "limit": 10
         }
     },
-    "archive": "./archive.sqlite3"
+    "archive": "./archive.sqlite3",
+
+    "store_mode": "json",
+    "scan_mode": "full",
+    "incremental_threshold": 10,
+    "download_media": true,
+    "store_db": "./twitter.db",
+    "max_count": -1
 }
