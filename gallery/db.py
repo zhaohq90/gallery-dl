@@ -114,7 +114,6 @@ class TweetDB:
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self._db_path))
             self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA foreign_keys=ON")
         return self._local.conn
 
     def _init_db(self):
@@ -141,8 +140,9 @@ class TweetDB:
         if not user or not user.get("id"):
             return False
 
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sql = """
+        try:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sql = """
             INSERT INTO users (
                 id, screen_name, name, verified, protected,
                 followers_count, friends_count, statuses_count,
@@ -173,29 +173,31 @@ class TweetDB:
                 profile_banner=excluded.profile_banner,
                 url=excluded.url,
                 updated_at=excluded.updated_at
-        """
-        self._conn.execute(sql, {
-            "id":                user.get("id"),
-            "screen_name":       user.get("name") or "",
-            "name":              user.get("nick") or "",
-            "verified":          1 if user.get("verified") else 0,
-            "protected":         1 if user.get("protected") else 0,
-            "followers_count":   user.get("followers_count"),
-            "friends_count":     user.get("friends_count"),
-            "statuses_count":    user.get("statuses_count"),
-            "media_count":       user.get("media_count"),
-            "favourites_count":  user.get("favourites_count"),
-            "listed_count":      user.get("listed_count"),
-            "description":       user.get("description") or "",
-            "location":          user.get("location") or "",
-            "profile_image":     user.get("profile_image") or "",
-            "profile_banner":    user.get("profile_banner") or "",
-            "url":               user.get("url") or "",
-            "created_at":        _fmt_date(user.get("date")),
-            "updated_at":        now,
-        })
-        self._conn.commit()
-        return True
+            """
+            self._conn.execute(sql, {
+                "id":                user.get("id"),
+                "screen_name":       user.get("name") or "",
+                "name":              user.get("nick") or "",
+                "verified":          1 if user.get("verified") else 0,
+                "protected":         1 if user.get("protected") else 0,
+                "followers_count":   user.get("followers_count"),
+                "friends_count":     user.get("friends_count"),
+                "statuses_count":    user.get("statuses_count"),
+                "media_count":       user.get("media_count"),
+                "favourites_count":  user.get("favourites_count"),
+                "listed_count":      user.get("listed_count"),
+                "description":       user.get("description") or "",
+                "location":          user.get("location") or "",
+                "profile_image":     user.get("profile_image") or "",
+                "profile_banner":    user.get("profile_banner") or "",
+                "url":               user.get("url") or "",
+                "created_at":        _fmt_date(user.get("date")),
+                "updated_at":        now,
+            })
+            self._conn.commit()
+            return True
+        except Exception:
+            return False
 
     # ── tweet ──────────────────────────────────────────────
 
@@ -224,8 +226,9 @@ class TweetDB:
         # Author
         author = kwdict.get("author") or kwdict.get("user") or {}
         user_id = author.get("id")
-        if user_id:
-            self.insert_user(author)
+        if not user_id:
+            return False
+        self.insert_user(author)
 
         # Hashtags & mentions as JSON
         hashtags = kwdict.get("hashtags")
