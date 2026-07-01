@@ -6,19 +6,45 @@
 
 ## 1. 快速开始
 
+### 1.1 环境准备
+
 ```bash
+# 进入项目目录
+cd gallery/
+
+# 创建虚拟环境（仅首次）
+python3 -m venv .venv
+
+# 激活虚拟环境
+source .venv/bin/activate
+
 # 安装依赖
 pip install gallery-dl
+```
 
-# 准备 cookies（浏览器导出 Netscape 格式 cookies.txt）
-# Chrome: Get cookies.txt LOCALLY 插件
-# Firefox: Export Cookies 插件
+> **说明**：macOS Homebrew 的 Python 受 PEP 668 保护，不允许直接 `pip install`。
+> 使用虚拟环境可以隔离依赖，避免污染系统 Python。
 
-# 编辑用户列表
-vim gallery/users.json
+### 1.2 准备 Cookies
 
-# 运行
-cd gallery/
+浏览器导出 Netscape 格式 `cookies.txt`，放置到 `gallery/` 目录：
+- Chrome: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) 插件
+- Firefox: [Export Cookies](https://addons.mozilla.org/en-US/firefox/addon/export-cookies-txt/) 插件
+
+### 1.3 编辑用户列表
+
+```bash
+vim users.json
+```
+
+### 1.4 运行
+
+```bash
+# 方式一：使用启动脚本（推荐）
+./export.sh
+
+# 方式二：手动激活后运行
+source .venv/bin/activate
 python export.py
 ```
 
@@ -29,11 +55,14 @@ python export.py
 ```
 gallery/
 ├── export.py              # 主脚本
+├── export.sh              # 一键启动脚本（自动激活 venv）
 ├── db.py                  # SQLite 管理器（sql 模式）
 ├── job_wrapper.py         # gallery-dl Job 包装器
 ├── config.json            # 配置文件
 ├── users.json             # 用户列表
 ├── cookies.txt            # Twitter 认证（需自行导出）
+├── .gitignore             # Git 忽略规则
+├── .venv/                 # Python 虚拟环境（不纳入版本控制）
 ├── twitter.db             # SQLite 数据库（sql 模式自动创建）
 ├── archive.sqlite3        # 下载归档（gallery-dl 原生）
 └── docs/
@@ -287,14 +316,17 @@ SQLite DB: /path/to/gallery/twitter.db
 ### Q: 如何从零开始？
 
 ```bash
-# 1. 安装 gallery-dl
+# 1. 创建虚拟环境并安装依赖
+cd gallery/
+python3 -m venv .venv
+source .venv/bin/activate
 pip install gallery-dl
 
 # 2. 导出 Twitter cookies（浏览器插件）
 #    → 将 cookies.txt 放到 gallery/ 目录
 
 # 3. 编辑用户列表
-vim gallery/users.json
+vim users.json
 
 # 4. 首次使用建议配置
 #    store_mode = "sql"
@@ -302,8 +334,7 @@ vim gallery/users.json
 #    max_count = -1
 
 # 5. 运行
-cd gallery/
-python export.py
+./export.sh
 ```
 
 ### Q: 首次全量导出后如何日常增量同步？
