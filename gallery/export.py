@@ -143,9 +143,9 @@ def export_content_python(username, export_root, gal_config, global_settings):
     :returns: (ok: bool, stats: dict, error: str|None)
     """
     store_mode = global_settings.get("store_mode", "json")
-    scan_mode = global_settings.get("scan_mode", "full")
     download_media = global_settings.get("download_media", True)
-    threshold = global_settings.get("incremental_threshold", 10)
+    threshold = global_settings.get("incremental_threshold", -1)
+    max_count = global_settings.get("max_count", -1)
     store_db_path = global_settings.get("store_db", "./twitter.db")
 
     content_dir = export_root / username / "content"
@@ -181,10 +181,10 @@ def export_content_python(username, export_root, gal_config, global_settings):
             gal_config["postprocessors"] = pp_list
             config.set((), "postprocessors", pp_list)
 
-    # ── 增量模式的 skip 配置 ──
-    if scan_mode == "incremental" and threshold > 0:
-        # 设置高阈值作为安全网（tweet 级由 prepare hook 控制）
-        config.set((), "skip", f"abort:{threshold * 5}")
+    # ── 设置 skip 安全网（tweet 级中止由 prepare hook 控制）──
+    if threshold > 0 or max_count > 0:
+        # 文件级 skip 上限设为 tweet 级阈值的 5 倍（一个推文可能有多张图）
+        config.set((), "skip", f"abort:{max(threshold, max_count, 10) * 5}")
 
     # ── SQL 模式：初始化数据库 ──
     db = None
@@ -199,10 +199,9 @@ def export_content_python(username, export_root, gal_config, global_settings):
     url = f"https://x.com/{username}/with_replies"
     job = CustomJob(url, db, {
         "store_mode": store_mode,
-        "scan_mode": scan_mode,
         "incremental_threshold": threshold,
         "download_media": download_media,
-        "max_count": global_settings.get("max_count", -1),
+        "max_count": max_count,
     })
 
     # 获取用户 ID（用于操作日志）
@@ -305,22 +304,22 @@ def main():
     # ── 全局设置 ──
     global_settings = {
         "store_mode":            gal_config.get("store_mode", "json"),
-        "scan_mode":             gal_config.get("scan_mode", "full"),
-        "incremental_threshold": gal_config.get("incremental_threshold", 10),
+        "incremental_threshold": gal_config.get("incremental_threshold", -1),
         "download_media":        gal_config.get("download_media", True),
         "store_db":              gal_config.get("store_db", "./twitter.db"),
         "max_count":             gal_config.get("max_count", -1),
     }
 
     logging.info("存储模式: %s", global_settings["store_mode"])
-    logging.info("扫描模式: %s", global_settings["scan_mode"])
     logging.info("下载媒体: %s", "是" if global_settings["download_media"] else "否")
     if global_settings["max_count"] > 0:
         logging.info("单用户上限: %d 条推文", global_settings["max_count"])
     else:
         logging.info("单用户上限: 不限制")
-    if global_settings["scan_mode"] == "incremental":
+    if global_settings["incremental_threshold"] > 0:
         logging.info("增量阈值: %d 条连续已知推文", global_settings["incremental_threshold"])
+    else:
+        logging.info("增量阈值: 不限制（全量扫描）")
     if global_settings["store_mode"] == "sql":
         logging.info("数据库:   %s", global_settings["store_db"])
 

@@ -155,35 +155,29 @@ tweet_type = "reply"   → 回复推文（有 reply_id）
 
 ---
 
-## 增量扫描
+## 中止条件
+
+通过两个参数控制扫描中止行为，`-1` 表示不限制，`> 0` 时生效，两条规则谁先触发谁中止：
 
 ### 工作原理
 
-gallery-dl 按时间倒序扫描推文（最新在前）。在增量模式下，每处理一条推文时：
+gallery-dl 按时间倒序扫描推文（最新在前）。每处理一条推文时：
 
-1. 查询 SQLite tweets 表：该 tweet_id 是否已存在
-2. **已存在** → 推入去重集合 `_dup_tweets`（set 去重）
-3. **不存在** → 清空 `_dup_tweets`，写入数据库
-4. 当 `len(_dup_tweets) >= incremental_threshold` → 抛出 `StopExtraction`，终止扫描
+1. **检查 `max_count`**：如果 `total_scanned >= max_count`（且 `max_count > 0`），抛出 `StopExtraction` 中止扫描
+2. **检查 `incremental_threshold`**：如果 `incremental_threshold > 0`，查询 SQLite tweets 表：
+   - **已存在** → 推入去重集合 `_dup_tweets`（set 去重）
+   - **不存在** → 清空 `_dup_tweets`，写入数据库
+   - 当 `len(_dup_tweets) >= incremental_threshold` → 抛出 `StopExtraction`，中止扫描
+3. 两条规则均不限制（均为 `-1`）→ 全量扫描，直到分页结束
 
-### 与全量模式对比
+### 参数组合行为
 
-| | 全量模式 (`full`) | 增量模式 (`incremental`) |
-|---|---|---|
-| API 爬取范围 | 全部推文，直到分页结束 | 遇到阈值个连续已知推文即停止 |
-| 适用场景 | 首次导出、数据恢复 | 日常同步、定时更新 |
-| 数据库写入 | 全部 INSERT OR IGNORE | 只到阈值点为止 |
-
-### scan_mode × max_count 组合行为
-
-| scan_mode | max_count | 实际行为 |
-|-----------|-----------|----------|
-| `full` | `-1` | 全量扫描直到分页结束（无限制） |
-| `full` | `50` | 扫到第 50 条推文时 `StopExtraction` 中止 |
-| `incremental` | `-1` | 遇到连续 N 条已知推文中止，无数量上限 |
-| `incremental` | `50` | 两者谁先触发谁中止（50 条上限 或 连续 N 条已知） |
-
-> **注意**：`max_count` 对 `full` 和 `incremental` **均生效**，不受 `scan_mode` 限制。全量模式下如需不限制，请设为 `-1`。
+| max_count | incremental_threshold | 实际行为 |
+|-----------|----------------------|----------|
+| `-1` | `-1` | 全量扫描，永不中止 |
+| `50` | `-1` | 扫到第 50 条即中止 |
+| `-1` | `10` | 连续 10 条已知推文时中止 |
+| `50` | `10` | 谁先触发谁中止（50 条上限 或 连续 10 条已知） |
 
 ---
 
@@ -216,7 +210,6 @@ gallery-dl 按时间倒序扫描推文（最新在前）。在增量模式下，
     "archive": "./archive.sqlite3",
 
     "store_mode": "sql",
-    "scan_mode": "incremental",
     "incremental_threshold": 10,
     "download_media": true,
     "store_db": "./twitter.db",
@@ -229,8 +222,7 @@ gallery-dl 按时间倒序扫描推文（最新在前）。在增量模式下，
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `store_mode` | string | `"json"` | 元数据存储模式：`json` 生成 .json 文件，`sql` 写入 SQLite |
-| `scan_mode` | string | `"full"` | 扫描模式：`full` 全量，`incremental` 增量 |
-| `incremental_threshold` | int | `10` | 增量模式下连续已知推文阈值 |
+| `incremental_threshold` | int | `-1` | 连续已知推文阈值，`-1` 不限制；`> 0` 时连续 N 条已知推文中止 |
 | `download_media` | bool | `true` | 是否下载媒体文件；`false` 时只抓元数据 |
 | `store_db` | string | `"./twitter.db"` | SQLite 数据库路径（相对于 gallery/ 目录） |
 | `max_count` | int | `-1` | 单用户最大推文数，`-1` 不限制；达到上限后中止并记录日志 |

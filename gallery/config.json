@@ -1,30 +1,29 @@
 {
-    "extractor": {
-        "twitter": {
-            "cookies": "./cookies.txt",
-            "videos": true,
-            "previews": true,
-            "quoted": true,
-            "text-tweets": true,
-            "retweets": true,
-            "replies": true,
-            "pinned": false,
-            "cards": false,
-            "ads": false,
-            "unique": true,
-            "transform": true,
-            "cursor": true,
-            "ratelimit": "wait",
-            "retries-api": 5,
-            "limit": 10
-        }
-    },
-    "archive": "./archive.sqlite3",
+  "extractor": {
+    "twitter": {
+      "cookies": "./cookies.txt",
+      "videos": true,
+      "previews": true,
+      "quoted": true,
+      "text-tweets": true,
+      "retweets": true,
+      "replies": true,
+      "pinned": false,
+      "cards": false,
+      "ads": false,
+      "unique": true,
+      "transform": true,
+      "cursor": true,
+      "ratelimit": "wait",
+      "retries-api": 5,
+      "limit": 10
+    }
+  },
+  "archive": "./archive.sqlite3",
 
-    "store_mode": "json",
-    "scan_mode": "full",
-    "incremental_threshold": 10,
-    "download_media": true,
-    "store_db": "./twitter.db",
-    "max_count": -1
+  "store_mode": "sql",
+  "incremental_threshold": -1,
+  "download_media": true,
+  "store_db": "./twitter.db",
+  "max_count": -1
 }

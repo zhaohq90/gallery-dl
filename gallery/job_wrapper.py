@@ -4,7 +4,7 @@
 
 提供：
   - SQLite 元数据写入（prepare / after / skip 钩子）
-  - 增量扫描（连续已知推文达到阈值时中止）
+  - 中止条件（max_count / incremental_threshold，-1 表示不限制，谁先触发谁中止）
   - 下载开关（纯元数据采集模式）
   - 操作日志统计
 """
@@ -22,16 +22,15 @@ class CustomJob(job.DownloadJob):
         """
         :param url:      提取器 URL
         :param db:       TweetDB 实例
-        :param settings: 配置 dict (store_mode / scan_mode / threshold / download_media / ...)
+        :param settings: 配置 dict (store_mode / incremental_threshold / max_count / download_media)
         """
         super().__init__(url, parent)
 
         self._db = db
         self._store_mode = settings.get("store_mode", "json")
-        self._scan_mode = settings.get("scan_mode", "full")
-        self._threshold = settings.get("incremental_threshold", 10)
-        self._download_media = settings.get("download_media", True)
+        self._threshold = settings.get("incremental_threshold", -1)
         self._max_count = settings.get("max_count", -1)
+        self._download_media = settings.get("download_media", True)
 
         # 运行时状态
         self._dup_tweets = set()        # 当前连续已知推文 ID 集合
@@ -58,7 +57,7 @@ class CustomJob(job.DownloadJob):
         if self._store_mode != "sql":
             return
 
-        # prepare: 增量检查 + 写 user + 写 tweet
+        # prepare: 中止条件检查 + 写 user + 写 tweet
         self.hooks.setdefault("prepare", []).append(self._on_prepare)
 
         # after: 写 media（文件下载成功后）
@@ -70,7 +69,7 @@ class CustomJob(job.DownloadJob):
     # ── hooks ──────────────────────────────────────────────
 
     def _on_prepare(self, pathfmt):
-        """prepare 钩子：最大数量检查 + 增量检查 + 写入 user 和 tweet。"""
+        """prepare 钩子：中止条件检查 + 写入 user 和 tweet。"""
         kwdict = pathfmt.kwdict
         tweet_id = kwdict.get("tweet_id")
         if not tweet_id:
@@ -80,14 +79,14 @@ class CustomJob(job.DownloadJob):
         if tweet_id in self._processed_tweets:
             return
 
-        # ---- 最大数量检查（优先于增量检查）----
+        # ---- 中止条件 1: 最大数量 ----
         if self._max_count > 0 and self._stats["total_scanned"] >= self._max_count:
-            self._stop_reason = f"max_count: 已达到单用户上限 {self._max_count} 条"
+            self._stop_reason = f"max_count: 已达到上限 {self._max_count} 条"
             self.log.info(self._stop_reason)
             raise exception.StopExtraction()
 
-        # ---- 增量扫描检查 ----
-        if self._scan_mode == "incremental" and self._threshold > 0:
+        # ---- 中止条件 2: 连续已知推文 ----
+        if self._threshold > 0:
             if self._db.tweet_exists(tweet_id):
                 self._dup_tweets.add(tweet_id)
                 if len(self._dup_tweets) >= self._threshold:
@@ -170,7 +169,16 @@ class CustomJob(job.DownloadJob):
 
     def start_log(self, user_id: int, username: str):
         """开始操作日志记录。"""
-        self._op_log_id = self._db.log_start(user_id, username, self._scan_mode)
+        # 根据参数推导扫描模式描述
+        if self._threshold > 0 and self._max_count > 0:
+            mode = f"incremental:{self._threshold}+max:{self._max_count}"
+        elif self._threshold > 0:
+            mode = f"incremental:{self._threshold}"
+        elif self._max_count > 0:
+            mode = f"max:{self._max_count}"
+        else:
+            mode = "full"
+        self._op_log_id = self._db.log_start(user_id, username, mode)
 
     def finish_log(self, status: str = "success"):
         """结束操作日志，写入统计数据。"""

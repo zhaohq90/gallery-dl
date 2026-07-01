@@ -68,7 +68,6 @@ gallery/
     "archive": "./archive.sqlite3",
 
     "store_mode": "sql",
-    "scan_mode": "incremental",
     "incremental_threshold": 10,
     "download_media": true,
     "store_db": "./twitter.db",
@@ -81,8 +80,7 @@ gallery/
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `store_mode` | string | `"json"` | 元数据存储模式 |
-| `scan_mode` | string | `"full"` | 扫描模式 |
-| `incremental_threshold` | int | `10` | 增量模式连续已知推文阈值 |
+| `incremental_threshold` | int | `-1` | 连续已知推文阈值，`-1` 不限制 |
 | `download_media` | bool | `true` | 是否下载媒体文件 |
 | `store_db` | string | `"./twitter.db"` | SQLite 数据库路径（sql 模式） |
 | `max_count` | int | `-1` | 单用户最大推文数，`-1` 不限制 |
@@ -159,36 +157,27 @@ JSON 文件包含：推文 ID、全文、作者信息、hashtags、互动计数�
 
 ---
 
-## 5. 扫描模式
+## 5. 中止条件
 
-### 5.1 全量模式 (`scan_mode: "full"`)
+通过两个参数控制扫描何时停止，`-1` 表示不限制，`> 0` 时生效。两条规则相互独立，**谁先触发谁中止**。
 
-正常扫描所有推文直至分页结束。**首次导出必须使用此模式。**
+### 5.1 参数组合
 
-### 5.2 增量模式 (`scan_mode: "incremental"`)
+| max_count | incremental_threshold | 效果 |
+|-----------|----------------------|------|
+| `-1` | `-1` | **全量扫描**，永不中止 |
+| `50` | `-1` | 扫到第 50 条推文即中止 |
+| `-1` | `10` | 连续 10 条已知推文时中止 |
+| `50` | `10` | 50 条上限 或 连续 10 条已知，谁先触发谁停 |
 
-扫描推文时检查每条推文是否已存在于 SQLite 数据库中：
-- **已存在** → 累加去重计数
-- **不存在** → 清零去重计数，写入数据库
-- 连续 N 条已知推文（`incremental_threshold`）→ 中止扫描
+### 5.2 典型场景
 
-**要求**：仅 SQL 模式支持，依赖 `tweets` 表做去重判定。
-
-**典型工作流**：
-```
-首次: scan_mode=full              → 全量抓取，建立数据库
-日常: scan_mode=incremental       → 只抓增量，遇连续已知推文自动停止
-```
-
-### 5.3 增量阈值对比
-
-| incremental_threshold | 行为 |
-|----------------------|------|
-| `5` | 连续 5 条已知推文即停止（更激进，适合高频同步） |
-| `10` (默认) | 连续 10 条已知推文停止（平衡） |
-| `50` | 连续 50 条已知推文停止（更保守，确保无遗漏） |
-
-> 阈值计数使用**唯一 tweet_id 去重**，同一推文的多张图片只计一次。
+| 场景 | 配置 | 说明 |
+|------|------|------|
+| 首次全量导出 | `max=-1, threshold=-1` | 无限制，扫到底 |
+| 日常增量同步 | `max=-1, threshold=10` | 只抓增量，遇连续已知自动停 |
+| 调试快速验证 | `max=20, threshold=-1` | 每个用户只抓 20 条 |
+| 混合模式 | `max=500, threshold=15` | 上限 500 条 + 连续已知保护 |
 
 ---
 
@@ -208,27 +197,7 @@ JSON 文件包含：推文 ID、全文、作者信息、hashtags、互动计数�
 
 ---
 
-## 7. 单用户上限
-
-`max_count` 限制单个用户抓取的最大推文数：
-
-| 值 | 行为 |
-|----|------|
-| `-1` (默认) | 不限制 |
-| `50` | 每个用户最多抓取 50 条推文后自动中止 |
-
-触发上限时日志会明确标注：
-```
-→ max_count: 已达到单用户上限 50 条
-```
-
-**适用场景**：
-- 调试时快速验证（如设为 20）
-- 限制每个用户的初始导出量
-
----
-
-## 8. 推文类型
+## 7. 推文类型
 
 工具自动识别并标注四种推文类型：
 
@@ -246,7 +215,7 @@ JSON 文件包含：推文 ID、全文、作者信息、hashtags、互动计数�
 
 ---
 
-## 9. 操作日志
+## 8. 操作日志
 
 SQL 模式下每次运行生成操作日志（`operation_log` 表），每条记录包含：
 
@@ -254,7 +223,7 @@ SQL 模式下每次运行生成操作日志（`operation_log` 表），每条记
 |------|------|
 | `username` | 用户 @handle |
 | `start_time` / `end_time` | 起止时间 |
-| `scan_mode` | full / incremental |
+| `scan_mode` | full / incremental:N / max:N / mixed |
 | `total_scanned` | 本次扫描推文总数 |
 | `new_tweets` | 新增推文数 |
 | `existing_tweets` | 已存在推文数 |
@@ -276,7 +245,6 @@ sqlite3 gallery/twitter.db "SELECT * FROM operation_log ORDER BY id DESC"
 Twitter/X 批量导出开始 — 2026-07-01 12:00:00
 配置文件: /path/to/gallery/users.json
 存储模式: sql
-扫描模式: incremental
 下载媒体: 是
 单用户上限: 不限制
 增量阈值: 10 条连续已知推文
@@ -314,7 +282,7 @@ SQLite DB: /path/to/gallery/twitter.db
 
 ---
 
-## 11. 常见问题
+## 10. 常见问题
 
 ### Q: 如何从零开始？
 
@@ -330,8 +298,8 @@ vim gallery/users.json
 
 # 4. 首次使用建议配置
 #    store_mode = "sql"
-#    scan_mode  = "full"
-#    max_count  = -1
+#    incremental_threshold = -1
+#    max_count = -1
 
 # 5. 运行
 cd gallery/
@@ -340,7 +308,7 @@ python export.py
 
 ### Q: 首次全量导出后如何日常增量同步？
 
-将 `config.json` 中的 `scan_mode` 从 `"full"` 改为 `"incremental"`，重新运行即可。
+将 `incremental_threshold` 从 `-1` 改为 `10`（或其他正数），重新运行即可。
 
 ### Q: 纯元数据不下载怎么配置？
 
@@ -362,7 +330,7 @@ python export.py
 
 ### Q: 如何重置增量扫描状态？
 
-删除 `twitter.db` 文件，切换回 `scan_mode: "full"` 重新全量抓取。
+删除 `twitter.db` 文件，重新全量抓取即可（`max_count=-1, incremental_threshold=-1`）。
 
 ### Q: 导出的数据在哪里？
 

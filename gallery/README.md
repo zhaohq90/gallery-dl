@@ -70,8 +70,7 @@ cookies.txt ──────┘                └─ JSON 模式: metadata PP
 | 配置项 | 值 | 说明 |
 |---|---|---|
 | `store_mode` | `"json"` (默认) 或 `"sql"` | 元数据存储模式：json=每文件生成 .json 伴生文件，sql=写入 SQLite 数据库 |
-| `scan_mode` | `"full"` (默认) 或 `"incremental"` | 扫描模式：full=全量扫描，incremental=增量扫描 |
-| `incremental_threshold` | `10` | 增量模式下连续已知推文阈值，达到后中止扫描 |
+| `incremental_threshold` | `-1` | 连续已知推文阈值，`-1` 不限制；`> 0` 时连续 N 条已知即中止 |
 | `download_media` | `true` (默认) | 是否下载媒体文件；设为 false 时仅采集元数据 |
 | `store_db` | `"./twitter.db"` | SQLite 数据库路径（sql 模式生效） |
 | `max_count` | `-1` | 单用户最大推文数，`-1` 不限制；达到上限后中止并记录日志 |
@@ -215,9 +214,9 @@ python export.py
 - 切换只需修改 `config.json` 中的 `store_mode` 即可
 
 **Q: 如何使用增量扫描？**
-1. 将 `config.json` 中的 `scan_mode` 设为 `"incremental"`
+1. 将 `config.json` 中的 `incremental_threshold` 设为正数（如 `10`）
 2. 将 `store_mode` 设为 `"sql"`（增量扫描依赖 SQLite）
-3. 首次运行使用 `"full"` 模式全量抓取，后续切换为 `"incremental"` 增量同步
+3. 首次运行设置 `incremental_threshold=-1` 全量抓取，后续设为正数增量同步
 4. 详细说明见 `docs/sqlite-storage.md`
 
 **Q: 如何只采集元数据不下载文件？**

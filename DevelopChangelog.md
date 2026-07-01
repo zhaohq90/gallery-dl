@@ -31,11 +31,12 @@
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `store_mode` | string | `"json"` | 元数据存储：`json`（.json 伴生文件） / `sql`（SQLite 数据库） |
-| `scan_mode` | string | `"full"` | 扫描模式：`full`（全量） / `incremental`（增量，连续已知推文中止） |
-| `incremental_threshold` | int | `10` | 增量模式连续已知推文阈值 |
+| `incremental_threshold` | int | `-1` | 连续已知推文阈值，`-1` 不限制；`> 0` 时生效 |
 | `download_media` | bool | `true` | 是否下载媒体文件；`false` = 仅采集元数据 |
 | `store_db` | string | `"./twitter.db"` | SQLite 数据库路径（sql 模式） |
 | `max_count` | int | `-1` | 单用户最大推文数，`-1` 不限制；达到上限后中止并记录日志 |
+
+> 两个中止参数独立工作，`-1` = 不限制，谁先触发谁中止。两个均为 `-1` 时等同全量扫描。
 
 **推文类型处理：**
 - `tweet` — 原创；`retweet` — 转发；`quote` — 引用；`reply` — 回复
@@ -46,8 +47,7 @@
 **注意事项：**
 - JSON 和 SQL 模式互斥，切换后重新运行即可
 - 增量扫描仅 SQL 模式支持
-- `max_count` 和增量阈值均可触发 `StopExtraction`，日志会明确标注中止原因
-- `download_media=false` 时不下载媒体文件，但元数据正常写入
+- `max_count` 和 `incremental_threshold` 均可触发 `StopExtraction`，日志会明确标注中止原因
 
 ---
 
