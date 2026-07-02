@@ -1,6 +1,6 @@
 {
   "settings": {
-    "export_root": "./data",
+    "export_root": "./",
     "export_root2": "/Users/zhaohq/github/gallery-dl/gallery",
     "limit": 10,
     "log_file": "export.log"
@@ -94,12 +94,12 @@
     {
       "username": "kohane_ash",
       "display_name": "小羽こはね",
-      "enabled": true
+      "enabled": false
     },
     {
       "username": "habizhu",
       "display_name": "hahashiwo998",
-      "enabled": false
+      "enabled": true
     },
     {
       "username": "NanaModeltt",
