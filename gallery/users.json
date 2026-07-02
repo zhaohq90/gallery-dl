@@ -8,8 +8,8 @@
   "users": [
     {
       "username": "hellojeeeun",
-      "display_name": "hellojeeeun",
-      "enabled": true
+      "display_name": "hellojeeeun_lock",
+      "enabled": false
     },
     {
       "username": "416derouchu",
