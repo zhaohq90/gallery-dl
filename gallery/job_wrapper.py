@@ -34,9 +34,10 @@ class CustomJob(job.DownloadJob):
         self._download_media = settings.get("download_media", True)
 
         # 运行时状态
-        self._dup_tweets = set()        # 当前连续已知推文 ID 集合
-        self._processed_tweets = set()   # 本次已处理的推文 ID
-        self._stop_reason = None         # 中止原因（用于日志区分）
+        self._dup_tweets = set()          # 当前连续已知推文 ID 集合
+        self._processed_tweets = set()    # 本次已处理的推文 ID
+        self._pre_existing_tweets = set() # 本次运行前已在 DB 中的推文 ID（跳过下载）
+        self._stop_reason = None          # 中止原因（用于日志区分）
         self._op_log_id: int | None = None
         self._stats = {
             "total_scanned": 0,
@@ -156,17 +157,32 @@ class CustomJob(job.DownloadJob):
     # ── download toggle ────────────────────────────────────
 
     def handle_url(self, url, kwdict):
-        """覆盖父类方法，支持 download_media=false。"""
+        """覆盖父类方法，支持 download_media=false 和 DB 权威去重。"""
+        tweet_id = kwdict.get("tweet_id")
+
         if not self._download_media:
             # 纯元数据模式：运行 prepare 钩子，跳过实际下载
             self.pathfmt.set_filename(kwdict)
             if "prepare" in self.hooks:
                 for cb in self.hooks["prepare"]:
                     cb(self.pathfmt)
-            # 跳过下载 → 触发 skip 钩子
             self.pathfmt.temppath = ""
             self.handle_skip()
             return
+
+        # DB 作为权威来源：已入库推文不再重复下载
+        if tweet_id and self._store_mode == "sql" and self._db:
+            if tweet_id not in self._processed_tweets:
+                if self._db.tweet_exists(tweet_id):
+                    self._pre_existing_tweets.add(tweet_id)
+            if tweet_id in self._pre_existing_tweets:
+                self.pathfmt.set_filename(kwdict)
+                if "prepare" in self.hooks:
+                    for cb in self.hooks["prepare"]:
+                        cb(self.pathfmt)
+                self.pathfmt.temppath = ""
+                self.handle_skip()
+                return
 
         super().handle_url(url, kwdict)
 
