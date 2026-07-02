@@ -17,7 +17,15 @@ else
     exit 1
 fi
 
-# Auto-open browser after a short delay
-(sleep 1 && open http://localhost:8899) &
+# Auto-open browser only on desktop environments (skip on headless/VPS)
+if [ "$(uname)" = "Darwin" ]; then
+    (sleep 1 && open http://localhost:8899) &
+elif [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+    if command -v xdg-open &>/dev/null; then
+        (sleep 1 && xdg-open http://localhost:8899) &
+    fi
+else
+    echo "  (无桌面环境，跳过自动打开浏览器)"
+fi
 
 exec "$PYTHON" user_editor.py
