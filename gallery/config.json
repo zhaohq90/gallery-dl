@@ -25,6 +25,6 @@
   "incremental_threshold": 10,
   "download_media": true,
   "store_db": "./data/twitter.db",
-  "max_count": 10,
+  "max_count": -1,
   "base_path": "./data"
 }

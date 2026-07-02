@@ -1,7 +1,7 @@
 {
   "settings": {
-    "export_root1": "/data/gallery",
-    "export_root": "/Users/zhaohq/github/gallery-dl/gallery",
+    "export_root": "/data/gallery",
+    "export_root2": "/Users/zhaohq/github/gallery-dl/gallery",
     "limit": 10,
     "log_file": "export.log"
   },
@@ -9,7 +9,7 @@
     {
       "username": "hellojeeeun",
       "display_name": "hellojeeeun",
-      "enabled": false
+      "enabled": true
     },
     {
       "username": "416derouchu",
@@ -54,7 +54,7 @@
     {
       "username": "buyaozuosi",
       "display_name": "夏色残响",
-      "enabled": false
+      "enabled": true
     },
     {
       "username": "Yels88",
@@ -109,7 +109,7 @@
     {
       "username": "qexiaohao",
       "display_name": "qexiaohao",
-      "enabled": true
+      "enabled": false
     }
   ]
 }
