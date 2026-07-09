@@ -35,4 +35,4 @@ source "${VENV_DIR}/bin/activate"
 
 # 运行导出脚本
 cd "${SCRIPT_DIR}"
-python export.py "$@"
+python3 export.py "$@"
